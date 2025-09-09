@@ -4,6 +4,51 @@ import path from 'path'
 
 const BATCHES_DIR = path.join(process.cwd(), 'data', 'batches')
 const PROCESSED_DIR = path.join(process.cwd(), 'data', 'processed')
+const COOLDOWN_PERIOD = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+
+function getLastRunTime(batchId: string): Date | null {
+  const lastRunFile = path.join(PROCESSED_DIR, `${batchId}_last_run.txt`)
+  if (!fs.existsSync(lastRunFile)) {
+    return null
+  }
+  
+  try {
+    const timestamp = fs.readFileSync(lastRunFile, 'utf8').trim()
+    return new Date(timestamp)
+  } catch (error) {
+    return null
+  }
+}
+
+function getCooldownInfo(batchId: string): { canRun: boolean; nextRunTime?: Date; remainingTime?: string } {
+  const lastRun = getLastRunTime(batchId)
+  
+  if (!lastRun) {
+    return { canRun: true }
+  }
+  
+  const now = new Date()
+  const timeSinceLastRun = now.getTime() - lastRun.getTime()
+  
+  if (timeSinceLastRun >= COOLDOWN_PERIOD) {
+    return { canRun: true }
+  }
+  
+  const nextRunTime = new Date(lastRun.getTime() + COOLDOWN_PERIOD)
+  const remainingMs = COOLDOWN_PERIOD - timeSinceLastRun
+  const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000))
+  const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+  
+  const remainingTime = remainingHours > 0 
+    ? `${remainingHours}h ${remainingMinutes}m`
+    : `${remainingMinutes}m`
+  
+  return { 
+    canRun: false, 
+    nextRunTime,
+    remainingTime 
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -35,6 +80,10 @@ export async function GET(
       !processedTickers.includes(t.toUpperCase())
     )
     
+    // Get cooldown information
+    const cooldownInfo = getCooldownInfo(batchId)
+    const lastRunTime = getLastRunTime(batchId)
+    
     return NextResponse.json({
       batch,
       processedTickers,
@@ -43,7 +92,13 @@ export async function GET(
       totalCount: batch.tickers.length,
       remainingCount: remainingTickers.length,
       lastProcessed,
-      isComplete: remainingTickers.length === 0
+      lastRunTime: lastRunTime?.toISOString(),
+      isComplete: remainingTickers.length === 0,
+      cooldown: {
+        canRun: cooldownInfo.canRun,
+        nextRunTime: cooldownInfo.nextRunTime?.toISOString(),
+        remainingTime: cooldownInfo.remainingTime
+      }
     })
     
   } catch (error) {

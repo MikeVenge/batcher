@@ -59,6 +59,7 @@ export default function BatchList({
           const progress = getProgressPercentage(batch.processedCount, batch.totalCount)
           const isComplete = progress === 100
           const remaining = batch.totalCount - batch.processedCount
+          const inCooldown = batch.cooldown && !batch.cooldown.canRun
 
           return (
             <div
@@ -89,9 +90,15 @@ export default function BatchList({
                   
                   <button
                     onClick={() => onRunBatch(batch.id)}
-                    disabled={isRunning || (remaining === 0)}
+                    disabled={isRunning || (remaining === 0) || inCooldown}
                     className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={remaining === 0 ? "All tickers processed" : "Run Batch"}
+                    title={
+                      remaining === 0 
+                        ? "All tickers processed" 
+                        : inCooldown 
+                          ? `Cooldown active - ${batch.cooldown?.remainingTime} remaining`
+                          : "Run Batch"
+                    }
                   >
                     {isRunning ? (
                       <Clock size={18} className="animate-spin" />
@@ -161,6 +168,13 @@ export default function BatchList({
                         <Clock size={16} className="text-blue-500 animate-spin" />
                         <span className="text-sm text-blue-600 font-medium">Running...</span>
                       </>
+                    ) : inCooldown ? (
+                      <>
+                        <Clock size={16} className="text-orange-500" />
+                        <span className="text-sm text-orange-600 font-medium">
+                          Cooldown ({batch.cooldown?.remainingTime})
+                        </span>
+                      </>
                     ) : (
                       <>
                         <Clock size={16} className="text-gray-400" />
@@ -169,11 +183,29 @@ export default function BatchList({
                     )}
                   </div>
                   
-                  {remaining > 0 && (
-                    <span className="text-xs text-gray-500">
-                      ~{Math.ceil(remaining / 3) * 5} min remaining
-                    </span>
-                  )}
+                  <div className="text-right">
+                    {inCooldown ? (
+                      <div className="text-xs">
+                        <div className="text-orange-600 font-medium">
+                          Cooldown: {batch.cooldown?.remainingTime}
+                        </div>
+                        {batch.cooldown?.nextRunTime && (
+                          <div className="text-orange-500">
+                            Next run: {new Date(batch.cooldown.nextRunTime).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : remaining > 0 ? (
+                      <span className="text-xs text-gray-500">
+                        ~{Math.ceil(remaining / 3) * 5} min to process
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>

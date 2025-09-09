@@ -1,17 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Server, CheckCircle, AlertCircle, Play, RefreshCw } from 'lucide-react'
+import { Server, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { BACKEND_CONFIG } from '../config/api'
 
-interface BackendStatusProps {
-  onTriggerBatch: (type: 'equity' | 'startup') => void
-}
-
-export default function BackendStatus({ onTriggerBatch }: BackendStatusProps) {
+export default function BackendStatus() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [lastCheck, setLastCheck] = useState<Date | null>(null)
-  const [triggering, setTriggering] = useState<string | null>(null)
 
   const checkBackendHealth = async () => {
     setBackendStatus('checking')
@@ -41,33 +36,6 @@ export default function BackendStatus({ onTriggerBatch }: BackendStatusProps) {
     return () => clearInterval(interval)
   }, [])
 
-  const handleTriggerBatch = async (type: 'equity' | 'startup') => {
-    if (backendStatus !== 'online') return
-    
-    setTriggering(type)
-    try {
-      const endpoint = type === 'equity' ? BACKEND_CONFIG.TRIGGER_EQUITY : BACKEND_CONFIG.TRIGGER_STARTUP
-      const response = await fetch(`${BACKEND_CONFIG.URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} batch triggered: ${result.message}`)
-        onTriggerBatch(type)
-      } else {
-        alert(`Failed to trigger ${type} batch`)
-      }
-    } catch (error) {
-      console.error(`Failed to trigger ${type} batch:`, error)
-      alert(`Error triggering ${type} batch`)
-    } finally {
-      setTriggering(null)
-    }
-  }
 
   const getStatusIcon = () => {
     switch (backendStatus) {
@@ -132,35 +100,6 @@ export default function BackendStatus({ onTriggerBatch }: BackendStatusProps) {
         </div>
       )}
 
-      {backendStatus === 'online' && (
-        <div className="flex space-x-3">
-          <button
-            onClick={() => handleTriggerBatch('equity')}
-            disabled={triggering === 'equity'}
-            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {triggering === 'equity' ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <Play size={14} />
-            )}
-            <span>Trigger Equity Batch</span>
-          </button>
-          
-          <button
-            onClick={() => handleTriggerBatch('startup')}
-            disabled={triggering === 'startup'}
-            className="flex items-center space-x-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {triggering === 'startup' ? (
-              <RefreshCw size={14} className="animate-spin" />
-            ) : (
-              <Play size={14} />
-            )}
-            <span>Trigger Startup Batch</span>
-          </button>
-        </div>
-      )}
 
       {backendStatus === 'offline' && (
         <div className="text-sm text-red-600">

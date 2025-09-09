@@ -28,13 +28,50 @@ export async function GET() {
           ? fs.readFileSync(processedFile, 'utf8').split('\n').filter(t => t.trim())
           : []
         
+        // Get cooldown information
+        const lastRunFile = path.join(PROCESSED_DIR, `${batch.id}_last_run.txt`)
+        let lastRunTime = null
+        let cooldown = { canRun: true }
+        
+        if (fs.existsSync(lastRunFile)) {
+          try {
+            const timestamp = fs.readFileSync(lastRunFile, 'utf8').trim()
+            lastRunTime = new Date(timestamp)
+            
+            const now = new Date()
+            const timeSinceLastRun = now.getTime() - lastRunTime.getTime()
+            const COOLDOWN_PERIOD = 24 * 60 * 60 * 1000 // 24 hours
+            
+            if (timeSinceLastRun < COOLDOWN_PERIOD) {
+              const nextRunTime = new Date(lastRunTime.getTime() + COOLDOWN_PERIOD)
+              const remainingMs = COOLDOWN_PERIOD - timeSinceLastRun
+              const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000))
+              const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+              
+              const remainingTime = remainingHours > 0 
+                ? `${remainingHours}h ${remainingMinutes}m`
+                : `${remainingMinutes}m`
+              
+              cooldown = {
+                canRun: false,
+                nextRunTime: nextRunTime.toISOString(),
+                remainingTime
+              }
+            }
+          } catch (error) {
+            console.error('Error reading last run time:', error)
+          }
+        }
+        
         return {
           ...batch,
           processedCount: processedTickers.length,
           totalCount: batch.tickers.length,
           lastProcessed: fs.existsSync(processedFile) 
             ? fs.statSync(processedFile).mtime.toISOString()
-            : null
+            : null,
+          lastRunTime: lastRunTime?.toISOString(),
+          cooldown
         }
       })
     

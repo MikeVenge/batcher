@@ -15,6 +15,12 @@ export interface Batch {
   processedCount: number
   totalCount: number
   lastProcessed: string | null
+  lastRunTime?: string | null
+  cooldown?: {
+    canRun: boolean
+    nextRunTime?: string
+    remainingTime?: string
+  }
 }
 
 export default function Home() {
@@ -72,9 +78,18 @@ export default function Home() {
         const result = await response.json()
         console.log('Batch run result:', result)
         fetchBatches() // Refresh to show updated counts
+      } else if (response.status === 429) {
+        // Cooldown period active
+        const result = await response.json()
+        alert(`Batch is in cooldown period. ${result.message}`)
+        fetchBatches() // Refresh to show cooldown status
+      } else {
+        const result = await response.json()
+        alert(`Failed to run batch: ${result.message || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Failed to run batch:', error)
+      alert('Failed to run batch. Please try again.')
     } finally {
       setRunningBatch(null)
     }
@@ -96,13 +111,6 @@ export default function Home() {
     }
   }
 
-  const handleBackendTrigger = (type: 'equity' | 'startup') => {
-    console.log(`Backend ${type} batch triggered`)
-    // Optionally refresh batches or show notification
-    setTimeout(() => {
-      fetchBatches()
-    }, 1000)
-  }
 
   if (loading) {
     return (
@@ -124,7 +132,7 @@ export default function Home() {
           </p>
         </div>
 
-        <BackendStatus onTriggerBatch={handleBackendTrigger} />
+        <BackendStatus />
 
         <div className="mb-6">
           <button

@@ -7,6 +7,7 @@ const PROCESSED_DIR = path.join(process.cwd(), 'data', 'processed')
 const API_URL = "https://research-api.alphax.inc/api/v2/public-company/"
 const WAIT_TIME = 300000 // 5 minutes in milliseconds
 const BATCH_SIZE = 3
+const COOLDOWN_PERIOD = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
 interface ProcessingResult {
   success: boolean
@@ -52,6 +53,55 @@ function saveProcessedTickers(batchId: string, tickers: string[]) {
   fs.appendFileSync(processedFile, tickers.join('\n') + '\n')
 }
 
+function getLastRunTime(batchId: string): Date | null {
+  const lastRunFile = path.join(PROCESSED_DIR, `${batchId}_last_run.txt`)
+  if (!fs.existsSync(lastRunFile)) {
+    return null
+  }
+  
+  try {
+    const timestamp = fs.readFileSync(lastRunFile, 'utf8').trim()
+    return new Date(timestamp)
+  } catch (error) {
+    return null
+  }
+}
+
+function saveLastRunTime(batchId: string) {
+  const lastRunFile = path.join(PROCESSED_DIR, `${batchId}_last_run.txt`)
+  fs.writeFileSync(lastRunFile, new Date().toISOString())
+}
+
+function canRunBatch(batchId: string): { canRun: boolean; nextRunTime?: Date; remainingTime?: string } {
+  const lastRun = getLastRunTime(batchId)
+  
+  if (!lastRun) {
+    return { canRun: true }
+  }
+  
+  const now = new Date()
+  const timeSinceLastRun = now.getTime() - lastRun.getTime()
+  
+  if (timeSinceLastRun >= COOLDOWN_PERIOD) {
+    return { canRun: true }
+  }
+  
+  const nextRunTime = new Date(lastRun.getTime() + COOLDOWN_PERIOD)
+  const remainingMs = COOLDOWN_PERIOD - timeSinceLastRun
+  const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000))
+  const remainingMinutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+  
+  const remainingTime = remainingHours > 0 
+    ? `${remainingHours}h ${remainingMinutes}m`
+    : `${remainingMinutes}m`
+  
+  return { 
+    canRun: false, 
+    nextRunTime,
+    remainingTime 
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -62,6 +112,18 @@ export async function POST(
     
     if (!fs.existsSync(batchFile)) {
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
+    }
+
+    // Check cooldown period
+    const cooldownCheck = canRunBatch(batchId)
+    if (!cooldownCheck.canRun) {
+      return NextResponse.json({ 
+        error: 'Batch is in cooldown period',
+        message: `This batch was run recently. Please wait ${cooldownCheck.remainingTime} before running again.`,
+        nextRunTime: cooldownCheck.nextRunTime,
+        remainingTime: cooldownCheck.remainingTime,
+        cooldown: true
+      }, { status: 429 }) // Too Many Requests
     }
 
     const batch = JSON.parse(fs.readFileSync(batchFile, 'utf8'))
@@ -76,6 +138,9 @@ export async function POST(
       })
     }
 
+    // Save the run timestamp at the start
+    saveLastRunTime(batchId)
+
     const result: ProcessingResult = {
       success: true,
       processedTickers: [],
@@ -84,6 +149,7 @@ export async function POST(
     }
 
     result.logs.push(`Starting batch processing for ${remainingTickers.length} remaining tickers`)
+    result.logs.push(`Next run will be available in 24 hours`)
     
     // Process tickers in batches
     for (let i = 0; i < remainingTickers.length; i += BATCH_SIZE) {
