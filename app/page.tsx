@@ -5,6 +5,7 @@ import { Plus, Play, Trash2, Eye, Clock, CheckCircle } from 'lucide-react'
 import BatchForm from './components/BatchForm'
 import BatchList from './components/BatchList'
 import BatchStatus from './components/BatchStatus'
+import BackendStatus from './components/BackendStatus'
 
 export interface Batch {
   id: string
@@ -95,6 +96,14 @@ export default function Home() {
     }
   }
 
+  const handleBackendTrigger = (type: 'equity' | 'startup') => {
+    console.log(`Backend ${type} batch triggered`)
+    // Optionally refresh batches or show notification
+    setTimeout(() => {
+      fetchBatches()
+    }, 1000)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -114,6 +123,8 @@ export default function Home() {
             Create and manage stock ticker batch processing
           </p>
         </div>
+
+        <BackendStatus onTriggerBatch={handleBackendTrigger} />
 
         <div className="mb-6">
           <button
