@@ -1,6 +1,6 @@
 # Research Batch Backend
 
-Python backend for processing equity and startup batches. Designed for deployment on Runway ML.
+Python backend for processing equity and startup batches. Designed for deployment on Railway.
 
 ## 🚀 Features
 
@@ -17,7 +17,10 @@ Python backend for processing equity and startup batches. Designed for deploymen
 - `tickers.txt` - List of stock tickers to process
 - `processed_tickers.txt` - Track completed tickers (auto-generated)
 - `requirements.txt` - Python dependencies
-- `runway.yml` - Runway deployment configuration
+- `railway.yml` - Railway deployment configuration
+- `web_interface.py` - Simple web interface for Railway
+- `Procfile` - Railway process configuration
+- `nixpacks.toml` - Railway build configuration
 - `Dockerfile` - Container configuration
 
 ## 🔧 Configuration
@@ -32,31 +35,37 @@ Python backend for processing equity and startup batches. Designed for deploymen
 - **Progress**: `processed_tickers.txt` - Auto-generated progress tracking
 - **URLs**: Various URL files for startup processing
 
-## 🚀 Runway Deployment
+## 🚀 Railway Deployment
 
-### 1. Push to GitHub
-```bash
-git init
-git add .
-git commit -m "Initial backend commit"
-git remote add origin https://github.com/YOUR_USERNAME/research-batch-backend.git
-git push -u origin main
-```
+### 1. Deploy to Railway
+1. Go to [railway.app](https://railway.app)
+2. Sign in with GitHub
+3. Click "Deploy from GitHub repo"
+4. Select repository: `MikeVenge/batcher`
+5. **Choose branch: `backend`**
+6. Railway will auto-detect Python and deploy
 
-### 2. Connect to Runway
-1. Go to [runway.ml](https://runway.ml)
-2. Connect your GitHub repository
-3. Runway will auto-detect the `runway.yml` configuration
+### 2. Configuration
+- Railway automatically installs from `requirements.txt`
+- Set environment variables in Railway dashboard:
+  - `WAIT_TIME=300`
+  - `BATCH_SIZE=3`
+  - `API_URL=https://research-api.alphax.inc/api/v2/public-company/`
 
-### 3. Configure Schedules
-- Set up cron jobs in Runway dashboard
-- Configure environment variables
-- Set up notifications for batch completion
+### 3. Access Points
+- **Web Interface:** Your Railway app URL (e.g., `https://your-app.railway.app`)
+- **Health Check:** `https://your-app.railway.app/health`
+- **Trigger Batches:** `POST https://your-app.railway.app/trigger/equity`
 
-### 4. Manual Execution
-Use Runway's command interface to run:
-- `run-equity-batch` - Process equity tickers
-- `run-startup-batch` - Process startup companies
+### 4. Process Types
+Railway supports multiple process types:
+- **Web:** Runs web interface (`python web_interface.py`)
+- **Worker:** Runs batch processor (`python equity_batch_processor.py`)
+
+### 5. Scheduling
+- Use Railway's cron jobs for scheduled processing
+- Or integrate with external cron services
+- Manual triggers via web interface
 
 ## 🔄 How It Works
 
@@ -82,9 +91,10 @@ Sends POST requests with format:
 
 ## 📊 Monitoring
 
-- Check Runway logs for processing status
+- Check Railway logs for processing status
 - Monitor `processed_tickers.txt` for progress
-- Set up Runway notifications for completion/errors
+- Use Railway's built-in monitoring and alerts
+- Access web interface for manual triggers and status
 
 ## 🛠 Local Development
 
@@ -101,8 +111,18 @@ python startup_batch_processor.py
 
 ## 🔒 Security
 
-- API credentials should be set as environment variables in Runway
+- API credentials should be set as environment variables in Railway
 - No sensitive data stored in repository
 - Progress files contain only ticker symbols
+- HTTPS enabled by default on Railway
 
-Ready for Runway deployment! 🛫
+## 🌐 Web Interface
+
+The backend includes a simple web interface accessible at your Railway app URL:
+
+- **Dashboard:** View service status and configuration
+- **Manual Triggers:** Start equity or startup batch processing
+- **Health Check:** Monitor service health
+- **Integration Ready:** API endpoints for frontend integration
+
+Ready for Railway deployment! 🚂

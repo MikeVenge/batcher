@@ -1,0 +1,17 @@
+# Railway configuration for batch processing backend
+# Railway will automatically detect this as a Python project
+
+# Build command (Railway runs this automatically)
+# pip install -r requirements.txt
+
+# Start command - can be overridden in Railway dashboard
+# python equity_batch_processor.py
+
+# Environment variables should be set in Railway dashboard:
+# WAIT_TIME=300
+# BATCH_SIZE=3
+# API_URL=https://research-api.alphax.inc/api/v2/public-company/
+# PORT=8000 (if running a web service)
+
+# Railway supports cron jobs via Railway's cron service
+# Configure schedules in Railway dashboard
