@@ -31,7 +31,7 @@ export async function GET() {
         // Get cooldown information
         const lastRunFile = path.join(PROCESSED_DIR, `${batch.id}_last_run.txt`)
         let lastRunTime = null
-        let cooldown = { canRun: true }
+        let cooldown: { canRun: boolean; nextRunTime?: string; remainingTime?: string } = { canRun: true }
         
         if (fs.existsSync(lastRunFile)) {
           try {
