@@ -14,6 +14,14 @@ interface BatchStatusData {
     name: string
     tickers: string[]
     createdAt: string
+    apiCalls?: Array<{
+      tickers: string[]
+      status: 'success' | 'failed'
+      httpStatus?: number
+      response?: any
+      error?: string
+      timestamp: string
+    }>
   }
   processedTickers: string[]
   remainingTickers: string[]
