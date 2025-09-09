@@ -1,0 +1,27 @@
+# Python files
+*.py
+__pycache__/
+*.pyc
+
+# Large data files
+*.txt
+*.md
+urls.txt
+massive_urls_temp.txt
+processed_urls.txt
+startup_urls.md
+
+# Development files
+node_modules/
+.git/
+.env*
+.DS_Store
+
+# Keep only essential Next.js files
+!README.md
+!package.json
+!next.config.js
+!tsconfig.json
+!tailwind.config.js
+!postcss.config.js
+!vercel.json
