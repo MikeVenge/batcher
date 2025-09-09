@@ -6,7 +6,9 @@ const BATCHES_DIR = path.join(process.cwd(), 'data', 'batches')
 const PROCESSED_DIR = path.join(process.cwd(), 'data', 'processed')
 const API_URL = "https://research-api.alphax.inc/api/v2/public-company/"
 const WAIT_TIME = 300000 // 5 minutes in milliseconds
-const BATCH_SIZE = 3
+const BATCH_SIZE = 3 // Number of tickers to process per batch
+const API_BATCH_SIZE = 2 // Maximum tickers per API call
+const API_CALL_GAP = 2000 // 2 seconds between API calls
 const COOLDOWN_PERIOD = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
 interface ProcessingResult {
@@ -16,23 +18,49 @@ interface ProcessingResult {
   logs: string[]
 }
 
-async function sendTickers(tickers: string[]): Promise<boolean> {
-  try {
-    const payload = { inputs: ["YYZ", ...tickers] }
+async function sendTickers(tickers: string[]): Promise<{ success: boolean; processedTickers: string[]; failedTickers: string[] }> {
+  const processedTickers: string[] = []
+  const failedTickers: string[] = []
+  
+  // Split tickers into chunks of maximum API_BATCH_SIZE (2)
+  for (let i = 0; i < tickers.length; i += API_BATCH_SIZE) {
+    const tickerChunk = tickers.slice(i, i + API_BATCH_SIZE)
     
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30000) // 30 second timeout
-    })
+    try {
+      const payload = { inputs: ["YYZ", ...tickerChunk] }
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000) // 30 second timeout
+      })
+      
+      if (response.status === 200 || response.status === 201) {
+        processedTickers.push(...tickerChunk)
+        console.log(`Successfully processed API call with tickers: ${tickerChunk.join(', ')}`)
+      } else {
+        failedTickers.push(...tickerChunk)
+        console.error(`API call failed for tickers: ${tickerChunk.join(', ')}, status: ${response.status}`)
+      }
+    } catch (error) {
+      failedTickers.push(...tickerChunk)
+      console.error(`API request failed for tickers: ${tickerChunk.join(', ')}, error:`, error)
+    }
     
-    return response.status === 200 || response.status === 201
-  } catch (error) {
-    console.error('API request failed:', error)
-    return false
+    // Wait 2 seconds between API calls (except for the last one)
+    if (i + API_BATCH_SIZE < tickers.length) {
+      console.log(`Waiting ${API_CALL_GAP / 1000} seconds before next API call...`)
+      await new Promise(resolve => setTimeout(resolve, API_CALL_GAP))
+    }
+  }
+  
+  return {
+    success: processedTickers.length > 0,
+    processedTickers,
+    failedTickers
   }
 }
 
@@ -159,22 +187,25 @@ export async function POST(
       
       result.logs.push(`Processing batch ${batchNumber}/${totalBatches}: ${tickerBatch.join(', ')}`)
       
-      // Process each ticker individually within the batch
-      const successfulTickers: string[] = []
+      // Process the batch (will be split into API calls of max 2 tickers each)
+      result.logs.push(`Processing batch with ${tickerBatch.length} tickers: ${tickerBatch.join(', ')}`)
       
-      for (const ticker of tickerBatch) {
-        result.logs.push(`Processing ticker: ${ticker}`)
-        const success = await sendTickers([ticker])
-        
-        if (success) {
-          successfulTickers.push(ticker)
-          result.processedTickers.push(ticker)
-          result.logs.push(`✓ ${ticker} processed successfully`)
-        } else {
-          result.failedTickers.push(ticker)
-          result.logs.push(`✗ ${ticker} failed to process`)
-        }
-      }
+      const batchResult = await sendTickers(tickerBatch)
+      
+      // Add results to overall tracking
+      result.processedTickers.push(...batchResult.processedTickers)
+      result.failedTickers.push(...batchResult.failedTickers)
+      
+      // Log individual ticker results
+      batchResult.processedTickers.forEach(ticker => {
+        result.logs.push(`✓ ${ticker} processed successfully`)
+      })
+      
+      batchResult.failedTickers.forEach(ticker => {
+        result.logs.push(`✗ ${ticker} failed to process`)
+      })
+      
+      const successfulTickers = batchResult.processedTickers
       
       // Save successful tickers
       if (successfulTickers.length > 0) {

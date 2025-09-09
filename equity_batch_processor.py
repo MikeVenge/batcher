@@ -12,6 +12,8 @@ HEADERS = {
 }
 WAIT_TIME = 300  # seconds between batches (5 minutes)
 BATCH_SIZE = 3  # number of tickers to process per batch
+API_BATCH_SIZE = 2  # maximum tickers per API call
+API_CALL_GAP = 2  # seconds between API calls
 PROGRESS_FILE = "processed_tickers.txt"  # File to track successfully processed tickers
 TICKERS_FILE = "tickers.txt"  # File containing all tickers to process
 
@@ -56,30 +58,50 @@ def get_remaining_tickers(all_tickers, processed_tickers):
     return remaining
 
 def send_tickers(ticker_batch):
-    """Send a batch of tickers to the API with YYZ command format"""
-    # Format: {"inputs": ["YYZ", "TICKER1", "TICKER2", "TICKER3"]}
-    payload = {"inputs": ["YYZ"] + ticker_batch}
+    """Send a batch of tickers to the API with YYZ command format, max 2 tickers per call"""
+    successful_tickers = []
+    failed_tickers = []
     
-    try:
-        response = requests.post(
-            API_URL,
-            headers=HEADERS,
-            data=json.dumps(payload),
-            timeout=30
-        )
+    # Split tickers into chunks of maximum API_BATCH_SIZE (2)
+    for i in range(0, len(ticker_batch), API_BATCH_SIZE):
+        ticker_chunk = ticker_batch[i:i + API_BATCH_SIZE]
         
-        if response.status_code in [200, 201]:
-            print(f"[{datetime.now()}] Success: Tickers processed successfully")
-            print(f"Response: {response.json()}")
-            return True
-        else:
-            print(f"[{datetime.now()}] Error: HTTP {response.status_code}")
-            print(f"Response: {response.text}")
-            return False
+        # Format: {"inputs": ["YYZ", "TICKER1", "TICKER2"]}
+        payload = {"inputs": ["YYZ"] + ticker_chunk}
+        
+        try:
+            print(f"[{datetime.now()}] Sending API call with {len(ticker_chunk)} tickers: {', '.join(ticker_chunk)}")
             
-    except requests.exceptions.RequestException as e:
-        print(f"[{datetime.now()}] Request failed: {e}")
-        return False
+            response = requests.post(
+                API_URL,
+                headers=HEADERS,
+                data=json.dumps(payload),
+                timeout=30
+            )
+            
+            if response.status_code in [200, 201]:
+                successful_tickers.extend(ticker_chunk)
+                print(f"[{datetime.now()}] Success: API call processed successfully")
+                print(f"Response: {response.json()}")
+            else:
+                failed_tickers.extend(ticker_chunk)
+                print(f"[{datetime.now()}] Error: HTTP {response.status_code}")
+                print(f"Response: {response.text}")
+                
+        except requests.exceptions.RequestException as e:
+            failed_tickers.extend(ticker_chunk)
+            print(f"[{datetime.now()}] Request failed: {e}")
+        
+        # Wait between API calls (except for the last one)
+        if i + API_BATCH_SIZE < len(ticker_batch):
+            print(f"[{datetime.now()}] Waiting {API_CALL_GAP} seconds before next API call...")
+            time.sleep(API_CALL_GAP)
+    
+    return {
+        'success': len(successful_tickers) > 0,
+        'successful_tickers': successful_tickers,
+        'failed_tickers': failed_tickers
+    }
 
 def main():
     wait_minutes = WAIT_TIME / 60
@@ -113,17 +135,19 @@ def main():
         for ticker in batch:
             print(f"  - {ticker}")
         
-        # Process each ticker in the batch individually
-        successful_tickers = []
-        for j, ticker in enumerate(batch):
-            print(f"[{datetime.now()}] Processing ticker {j+1}/{len(batch)} in batch: {ticker}")
-            success = send_tickers([ticker])  # Send as single-item list (plus YYZ command)
-            
-            if success:
-                successful_tickers.append(ticker)
-                print(f"[{datetime.now()}] Ticker processed successfully!")
-            else:
-                print(f"[{datetime.now()}] Ticker failed - will not be saved to progress file")
+        # Process the entire batch (will be split into API calls of max 2 tickers each)
+        print(f"[{datetime.now()}] Processing batch with {len(batch)} tickers")
+        batch_result = send_tickers(batch)
+        
+        successful_tickers = batch_result['successful_tickers']
+        failed_tickers = batch_result['failed_tickers']
+        
+        print(f"[{datetime.now()}] Batch processing complete:")
+        print(f"  - Successful: {len(successful_tickers)} tickers")
+        print(f"  - Failed: {len(failed_tickers)} tickers")
+        
+        if failed_tickers:
+            print(f"[{datetime.now()}] Failed tickers: {', '.join(failed_tickers)}")
         
         # Save only the successfully processed tickers
         if successful_tickers:
