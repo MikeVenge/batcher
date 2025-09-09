@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 300
+    }
+  },
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ]
+}
