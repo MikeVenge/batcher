@@ -40,19 +40,39 @@ async function sendTickers(tickers: string[]): Promise<{ success: boolean; proce
       
       if (response.status === 200 || response.status === 201) {
         processedTickers.push(...tickerChunk)
-        console.log(`Successfully processed API call with tickers: ${tickerChunk.join(', ')}`)
+        console.log(`✅ API call SUCCESS: ${tickerChunk.join(', ')} - Status: ${response.status}`)
+        
+        // Try to get response body for logging
+        try {
+          const responseData = await response.json()
+          console.log(`Response data:`, responseData)
+        } catch (e) {
+          console.log(`Response text: ${await response.text()}`)
+        }
       } else {
         failedTickers.push(...tickerChunk)
-        console.error(`API call failed for tickers: ${tickerChunk.join(', ')}, status: ${response.status}`)
+        console.error(`❌ API call FAILED: ${tickerChunk.join(', ')} - Status: ${response.status}`)
+        
+        try {
+          const errorText = await response.text()
+          console.error(`Error response: ${errorText}`)
+        } catch (e) {
+          console.error(`Could not read error response`)
+        }
       }
     } catch (error) {
       failedTickers.push(...tickerChunk)
       console.error(`API request failed for tickers: ${tickerChunk.join(', ')}, error:`, error)
     }
     
+    // Log current progress
+    console.log(`📊 Progress: ${processedTickers.length + failedTickers.length}/${tickers.length} API calls completed`)
+    console.log(`✅ Successful: ${processedTickers.length} tickers`)
+    console.log(`❌ Failed: ${failedTickers.length} tickers`)
+    
     // Wait 2 seconds between API calls (except for the last one)
     if (i + API_BATCH_SIZE < tickers.length) {
-      console.log(`Waiting ${API_CALL_GAP / 1000} seconds before next API call...`)
+      console.log(`⏳ Waiting ${API_CALL_GAP / 1000} seconds before next API call...`)
       await new Promise(resolve => setTimeout(resolve, API_CALL_GAP))
     }
   }
@@ -185,12 +205,18 @@ export async function POST(
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1
       const totalBatches = Math.ceil(remainingTickers.length / BATCH_SIZE)
       
-      result.logs.push(`Processing batch ${batchNumber}/${totalBatches}: ${tickerBatch.join(', ')}`)
+      result.logs.push(`🔄 Processing batch ${batchNumber}/${totalBatches}: ${tickerBatch.join(', ')}`)
+      result.logs.push(`📡 Will make ${Math.ceil(tickerBatch.length / API_BATCH_SIZE)} API calls (max ${API_BATCH_SIZE} tickers each)`)
       
-      // Process the batch (will be split into API calls of max 2 tickers each)
-      result.logs.push(`Processing batch with ${tickerBatch.length} tickers: ${tickerBatch.join(', ')}`)
+      console.log(`\n🚀 Starting batch ${batchNumber}/${totalBatches} with ${tickerBatch.length} tickers`)
+      console.log(`Tickers: ${tickerBatch.join(', ')}`)
+      console.log(`Will split into ${Math.ceil(tickerBatch.length / API_BATCH_SIZE)} API calls`)
       
       const batchResult = await sendTickers(tickerBatch)
+      
+      console.log(`\n✅ Batch ${batchNumber} complete:`)
+      console.log(`  Processed: ${batchResult.processedTickers.length} tickers`)
+      console.log(`  Failed: ${batchResult.failedTickers.length} tickers`)
       
       // Add results to overall tracking
       result.processedTickers.push(...batchResult.processedTickers)
