@@ -32,7 +32,7 @@ export function getApiUrl(endpoint: string): string {
 
 // Backend integration helper
 export const BACKEND_CONFIG = {
-  URL: process.env.BACKEND_URL || 'http://35.247.166.100:8080',
+  URL: process.env.BACKEND_URL || 'https://batching.adgo.dev',
   HEALTH_ENDPOINT: '/health',
   TRIGGER_EQUITY: '/trigger/equity',
   TRIGGER_STARTUP: '/trigger/startup',
