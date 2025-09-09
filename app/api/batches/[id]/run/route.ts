@@ -16,11 +16,20 @@ interface ProcessingResult {
   processedTickers: string[]
   failedTickers: string[]
   logs: string[]
+  apiCalls: Array<{
+    tickers: string[]
+    status: 'success' | 'failed'
+    httpStatus?: number
+    response?: any
+    error?: string
+    timestamp: string
+  }>
 }
 
-async function sendTickers(tickers: string[]): Promise<{ success: boolean; processedTickers: string[]; failedTickers: string[] }> {
+async function sendTickers(tickers: string[]): Promise<{ success: boolean; processedTickers: string[]; failedTickers: string[]; apiCalls: any[] }> {
   const processedTickers: string[] = []
   const failedTickers: string[] = []
+  const apiCalls: any[] = []
   
   // Split tickers into chunks of maximum API_BATCH_SIZE (2)
   for (let i = 0; i < tickers.length; i += API_BATCH_SIZE) {
@@ -38,31 +47,59 @@ async function sendTickers(tickers: string[]): Promise<{ success: boolean; proce
         signal: AbortSignal.timeout(30000) // 30 second timeout
       })
       
+      let responseData = null
+      
       if (response.status === 200 || response.status === 201) {
         processedTickers.push(...tickerChunk)
         console.log(`✅ API call SUCCESS: ${tickerChunk.join(', ')} - Status: ${response.status}`)
         
         // Try to get response body for logging
         try {
-          const responseData = await response.json()
+          responseData = await response.json()
           console.log(`Response data:`, responseData)
         } catch (e) {
-          console.log(`Response text: ${await response.text()}`)
+          responseData = await response.text()
+          console.log(`Response text: ${responseData}`)
         }
+        
+        apiCalls.push({
+          tickers: tickerChunk,
+          status: 'success',
+          httpStatus: response.status,
+          response: responseData,
+          timestamp: new Date().toISOString()
+        })
       } else {
         failedTickers.push(...tickerChunk)
         console.error(`❌ API call FAILED: ${tickerChunk.join(', ')} - Status: ${response.status}`)
         
+        let errorText = ''
         try {
-          const errorText = await response.text()
+          errorText = await response.text()
           console.error(`Error response: ${errorText}`)
         } catch (e) {
-          console.error(`Could not read error response`)
+          errorText = 'Could not read error response'
+          console.error(errorText)
         }
+        
+        apiCalls.push({
+          tickers: tickerChunk,
+          status: 'failed',
+          httpStatus: response.status,
+          error: errorText,
+          timestamp: new Date().toISOString()
+        })
       }
     } catch (error) {
       failedTickers.push(...tickerChunk)
       console.error(`API request failed for tickers: ${tickerChunk.join(', ')}, error:`, error)
+      
+      apiCalls.push({
+        tickers: tickerChunk,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      })
     }
     
     // Log current progress
@@ -80,7 +117,8 @@ async function sendTickers(tickers: string[]): Promise<{ success: boolean; proce
   return {
     success: processedTickers.length > 0,
     processedTickers,
-    failedTickers
+    failedTickers,
+    apiCalls
   }
 }
 
@@ -193,7 +231,8 @@ export async function POST(
       success: true,
       processedTickers: [],
       failedTickers: [],
-      logs: []
+      logs: [],
+      apiCalls: []
     }
 
     result.logs.push(`Starting batch processing for ${remainingTickers.length} remaining tickers`)
@@ -221,6 +260,7 @@ export async function POST(
       // Add results to overall tracking
       result.processedTickers.push(...batchResult.processedTickers)
       result.failedTickers.push(...batchResult.failedTickers)
+      result.apiCalls.push(...batchResult.apiCalls)
       
       // Log individual ticker results
       batchResult.processedTickers.forEach(ticker => {

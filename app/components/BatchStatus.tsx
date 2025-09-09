@@ -248,13 +248,59 @@ export default function BatchStatus({ batchId, onClose }: BatchStatusProps) {
           </div>
         </div>
 
+        {/* API Call Details */}
+        {status.batch.apiCalls && status.batch.apiCalls.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Recent API Calls</h3>
+            <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+              <div className="space-y-2">
+                {status.batch.apiCalls.slice(-10).map((call: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-md border-l-4 ${
+                      call.status === 'success' 
+                        ? 'bg-green-50 border-green-400' 
+                        : 'bg-red-50 border-red-400'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-sm">
+                          {call.status === 'success' ? '✅' : '❌'} {call.tickers.join(', ')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(call.timestamp).toLocaleTimeString()}
+                          {call.httpStatus && ` • HTTP ${call.httpStatus}`}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {call.status === 'success' ? (
+                          <span className="text-xs text-green-600">Success</span>
+                        ) : (
+                          <span className="text-xs text-red-600">Failed</span>
+                        )}
+                      </div>
+                    </div>
+                    {call.error && (
+                      <div className="mt-1 text-xs text-red-600">{call.error}</div>
+                    )}
+                    {call.response && call.response.message && (
+                      <div className="mt-1 text-xs text-green-600">{call.response.message}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Estimated Time */}
         {status.remainingCount > 0 && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <div className="text-sm text-blue-800">
-              <strong>Estimated time remaining:</strong> ~{Math.ceil(status.remainingCount / 3) * 5} minutes
+              <strong>Estimated time remaining:</strong> ~{Math.ceil(status.remainingCount / 2) * 2} seconds for API calls + batch intervals
               <div className="text-xs text-blue-600 mt-1">
-                Based on 3 tickers per batch with 5-minute intervals
+                Based on max 2 tickers per API call with 2-second intervals, plus 5-minute batch intervals
               </div>
             </div>
           </div>
