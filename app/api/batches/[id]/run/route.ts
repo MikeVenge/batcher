@@ -279,10 +279,10 @@ export async function POST(
         result.logs.push(`Saved ${successfulTickers.length} successful tickers to progress file`)
       }
       
-      // Wait between batches (except for the last batch)
+      // Small delay between batches to avoid overwhelming the API
       if (i + BATCH_SIZE < remainingTickers.length) {
-        result.logs.push(`Waiting 5 minutes before next batch...`)
-        await new Promise(resolve => setTimeout(resolve, WAIT_TIME))
+        result.logs.push(`Brief pause before next batch...`)
+        await new Promise(resolve => setTimeout(resolve, 5000)) // 5 seconds between batches
       }
     }
     
