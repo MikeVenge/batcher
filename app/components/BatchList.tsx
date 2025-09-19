@@ -90,13 +90,13 @@ export default function BatchList({
                   
                   <button
                     onClick={() => onRunBatch(batch.id)}
-                    disabled={isRunning || (remaining === 0) || inCooldown}
+                    disabled={isRunning || inCooldown}
                     className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title={
-                      remaining === 0 
-                        ? "All tickers processed" 
-                        : inCooldown 
-                          ? `Cooldown active - ${batch.cooldown?.remainingTime} remaining`
+                      inCooldown 
+                        ? `Cooldown active - ${batch.cooldown?.remainingTime} remaining`
+                        : remaining === 0
+                          ? "Re-run completed batch"
                           : "Run Batch"
                     }
                   >

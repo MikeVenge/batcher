@@ -216,15 +216,19 @@ export async function POST(
     const processedTickers = loadProcessedTickers(batchId)
     const remainingTickers = batch.tickers.filter((t: string) => !processedTickers.includes(t.toUpperCase()))
     
+    // If all tickers are processed, allow re-running the entire batch
     if (remainingTickers.length === 0) {
-      return NextResponse.json({ 
-        message: 'All tickers in this batch have already been processed',
-        processedCount: processedTickers.length,
-        totalCount: batch.tickers.length
-      })
+      // Clear processed tickers to re-run the entire batch
+      const processedFile = path.join(PROCESSED_DIR, `${batchId}_processed.txt`)
+      if (fs.existsSync(processedFile)) {
+        fs.unlinkSync(processedFile)
+      }
+      
+      // Set remaining tickers to all tickers for re-run
+      remainingTickers.push(...batch.tickers)
     }
 
-    // Save the run timestamp at the start
+    // Save the run timestamp at the start  
     saveLastRunTime(batchId)
 
     const result: ProcessingResult = {
