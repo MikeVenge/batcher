@@ -57,8 +57,11 @@ def get_remaining_tickers(all_tickers, processed_tickers):
 
 def send_tickers(ticker_batch):
     """Send a batch of tickers to the API with YYZ command format"""
-    # Format: {"inputs": ["YYZ", "TICKER1", "TICKER2", "TICKER3"]}
-    payload = {"inputs": ["YYZ"] + ticker_batch}
+    # Format: {"inputs": ["YYZ", "TICKER1", "TICKER2", "TICKER3"], "portfolio": "public"}
+    payload = {
+        "inputs": ["YYZ"] + ticker_batch,
+        "portfolio": "public"
+    }
     
     print(f"[{datetime.now()}] TEST MODE: Would send payload: {payload}")
     

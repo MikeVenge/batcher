@@ -36,7 +36,11 @@ async function sendTickers(tickers: string[]): Promise<{ success: boolean; proce
     const tickerChunk = tickers.slice(i, i + API_BATCH_SIZE)
     
     try {
-      const payload = { inputs: ["YYZ", ...tickerChunk] }
+      const payload = { 
+        inputs: ["YYZ", ...tickerChunk],
+        portfolio: "public",
+        apikey: "ukMVIKfgon_V36yCIliIBWSAgXYxIVmkfPrT0cKYwCI"
+      }
       
       const response = await fetch(API_URL, {
         method: 'POST',
